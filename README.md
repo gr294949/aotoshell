@@ -13,6 +13,7 @@
 
 1. **Fork本仓库**
 2. **配置规则源**
+
    编辑 `configs/rule_sources.json` 文件，添加你的规则源：
    ```json
    {
@@ -24,15 +25,18 @@
        }
      ]
    }
-3. **手动运行工作流**
+4. **手动运行工作流**
+
    进入仓库的 Actions 标签页
    选择 Convert Sing-box Rulesets 工作流
    点击 Run workflow 触发手动转换
 
-4. **获取生成的SRS文件**
+6. **获取生成的SRS文件**
+
    在工作流运行完成后，在 Artifacts 部分下载生成的SRS文件
    或创建GitHub Release标签自动打包发布  
-# 📁 仓库文件结构
+## 📁 仓库文件结构
+
 sing-box-rule-converter/
 ├── .github/
 │   └── workflows/
@@ -46,11 +50,11 @@ sing-box-rule-converter/
 ├── .gitignore
 ├── LICENSE
 └── README.md
-# ⚙️ GitHub Actions工作流
+## ⚙️ GitHub Actions工作流
 创建 .github/workflows/convert-rulesets.yml 文件
-# 🐍 Python转换脚本
+## 🐍 Python转换脚本
 创建 scripts/convert.py 文件
-# 🔧 辅助脚本
+## 🔧 辅助脚本
 创建 scripts/helpers.py 文件
-# 📋 规则源配置
+## 📋 规则源配置
 创建 configs/rule_sources.json 文件
