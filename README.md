@@ -38,23 +38,43 @@
 ## 📁 仓库文件结构
 
 sing-box-rule-converter/
+
 ├── .github/
+
 │   └── workflows/
+
 │       └── convert-rulesets.yml     # GitHub Actions工作流
+
 ├── scripts/
+
 │   ├── convert.py                   # 主要转换脚本
+
 │   └── helpers.py                   # 辅助函数
+
 ├── configs/
+
 │   └── rule_sources.json            # 规则源定义文件
+
 ├── outputs/                         # 转换后的SRS文件(自动生成)
+
 ├── .gitignore
+
 ├── LICENSE
+
 └── README.md
+
 ## ⚙️ GitHub Actions工作流
+
 创建 .github/workflows/convert-rulesets.yml 文件
+
 ## 🐍 Python转换脚本
+
 创建 scripts/convert.py 文件
+
 ## 🔧 辅助脚本
+
 创建 scripts/helpers.py 文件
+
 ## 📋 规则源配置
+
 创建 configs/rule_sources.json 文件
