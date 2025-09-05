@@ -1,0 +1,40 @@
+name: Convert Sing-box Rulesets
+
+on:
+  workflow_dispatch:    # 允许手动触发
+  schedule:
+    - cron: '0 0 * * 1' # 每周一次(可选)
+  push:
+    paths:
+      - 'configs/rule_sources.json' # 配置变更时触发
+
+jobs:
+  convert-rules:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Setup Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.10'
+
+    - name: Install dependencies
+      run: pip install requests pyyaml
+
+    - name: Download and convert rulesets
+      run: python scripts/convert.py
+
+    - name: Upload generated SRS files
+      uses: actions/upload-artifact@v4
+      with:
+        name: converted-srs-files
+        path: outputs/
+        
+    - name: Create Release on Tag
+      if: startsWith(github.ref, 'refs/tags/')
+      uses: softprops/action-gh-release@v1
+      with:
+        files: outputs/*.srs
