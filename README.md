@@ -1,2 +1,1 @@
-# aotoshell
-一些自用脚本
+🚀 Sing-box规则集转换自动化仓库
