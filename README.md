@@ -25,56 +25,73 @@
        }
      ]
    }
-4. **手动运行工作流**
+3. **手动运行工作流**
 
    进入仓库的 Actions 标签页
    选择 Convert Sing-box Rulesets 工作流
    点击 Run workflow 触发手动转换
 
-6. **获取生成的SRS文件**
+4. **获取生成的SRS文件**
 
    在工作流运行完成后，在 Artifacts 部分下载生成的SRS文件
    或创建GitHub Release标签自动打包发布  
-## 📁 仓库文件结构
+## 配置选项
 
-sing-box-rule-converter/
+   规则源格式
+   {
+    "name": "规则集名称（输出文件名）",
+    "url": "规则源URL",
+    "format": "格式类型（json/list/auto）"
+   }
+## 工作流触发条件
+   
+   手动触发: 通过GitHub UI手动运行
+   
+   定时任务: 每周一UTC时间00:00自动运行
+   
+   配置变更: 当规则源配置文件更改时自动触发
+## 文件说明
+  .github/workflows/convert-rulesets.yml - GitHub Actions工作流定义
 
-├── .github/
+  scripts/convert.py - 主要转换脚本
 
-│   └── workflows/
+  scripts/helpers.py - 辅助函数
 
-│       └── convert-rulesets.yml     # GitHub Actions工作流
+  configs/rule_sources.json - 规则源配置
 
-├── scripts/
+  outputs/ - 生成的SRS文件目录
 
-│   ├── convert.py                   # 主要转换脚本
+## 注意事项
+   
+   确保规则源URL可公开访问
 
-│   └── helpers.py                   # 辅助函数
+   List格式规则支持常见格式（DOMAIN, DOMAIN-SUFFIX, IP-CIDR）
 
-├── configs/
+   大型规则集转换可能需要较长时间（最多5分钟）
 
-│   └── rule_sources.json            # 规则源定义文件
+   生成的SRS文件与sing-box 1.8.0+版本兼容
 
-├── outputs/                         # 转换后的SRS文件(自动生成)
+## 常见问题
+   **转换失败怎么办？**
+   
+   检查规则源URL是否可访问
 
-├── .gitignore
+   确认规则格式配置正确
 
-├── LICENSE
+   查看Actions日志获取详细错误信息
 
-└── README.md
+   **如何添加新规则源？**
+   
+   编辑 configs/rule_sources.json
 
-## ⚙️ GitHub Actions工作流
+   添加新的规则源配置
 
-创建 .github/workflows/convert-rulesets.yml 文件
+   提交更改将自动触发转换
 
-## 🐍 Python转换脚本
+## 贡献
+   
+   欢迎提交Issue和Pull Request来改进本项目！
 
-创建 scripts/convert.py 文件
 
-## 🔧 辅助脚本
 
-创建 scripts/helpers.py 文件
 
-## 📋 规则源配置
-
-创建 configs/rule_sources.json 文件
