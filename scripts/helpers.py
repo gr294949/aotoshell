@@ -7,6 +7,7 @@ import platform
 import re
 import time
 import shutil
+import subprocess  
 from urllib.parse import urljoin
 
 def get_system_architecture():
