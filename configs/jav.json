@@ -1,0 +1,19 @@
+{
+  "version": 1,
+  "rules": [
+    {
+      "domain_suffix": [
+        "avsox.click"
+        "missav.ai",
+        "missav.com",
+        "missav.uno",
+        "missav.vip",
+        "missav.ws",
+        "javdb.com",
+        "jdbimgs.com",
+        "jdbstatic.com"
+      ],
+      "domain_keyword": "javlibrary"
+    }
+  ]
+}
