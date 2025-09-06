@@ -120,7 +120,7 @@ A: 这通常是网络问题导致的下载失败，工作流会自动重试。�
 A: 检查规则源 URL 是否可访问，以及规则格式是否正确配置。
 
 **Q: 生成的 SRS 文件无法加载**
-A: 确保使用兼容的 sing-box 版本（v1.8.0+）。
+A: 确保使用兼容的 sing-box 版本（v1.12.4+）。
 
 ### 查看日志
 
@@ -149,7 +149,7 @@ A: 确保使用兼容的 sing-box 版本（v1.8.0+）。
 
 如果你遇到任何问题或有建议，请：
 
-1. 查看 [现有 Issue](https://github.com/your-username/sing-box-rule-converter/issues)
+1. 查看 [现有 Issue](https://github.com/gr294949/sing-box-rule-converter/issues)
 2. 如果找不到解决方案，请创建新 Issue 并提供详细描述
 
 ---
