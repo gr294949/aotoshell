@@ -1,24 +1,14 @@
 {
   "rulesets": [
     {
-      "name": "geoip-cn",
-      "url": "https://raw.githubusercontent.com/SagerNet/sing-geoip/rule-set/geoip-cn.json",
+      "name": "geosite-av",
+      "url": "https://raw.githubusercontent.com/gr294949/sing-box-rule-converter/rule-set/geosite-av.json",
       "format": "json"
     },
     {
-      "name": "geosite-cn",
-      "url": "https://raw.githubusercontent.com/SagerNet/sing-geosite/rule-set/geosite-cn.json",
+      "name": "geosite-jav",
+      "url": "https://raw.githubusercontent.com/gr294949/sing-box-rule-converter/rule-set/geosite-jav.json",
       "format": "json"
-    },
-    {
-      "name": "ads-list",
-      "url": "https://raw.githubusercontent.com/privacy-protection-tools/anti-AD/master/anti-ad-domains.txt",
-      "format": "list"
-    },
-    {
-      "name": "gfw-list",
-      "url": "https://raw.githubusercontent.com/gfwlist/gfwlist/master/gfwlist.txt",
-      "format": "list"
     }
   ]
 }
