@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Sing-box规则集转换脚本
-自动检测最新版本并下载合适的sing-box二进制文件
+自动检测最新稳定版本并下载合适的sing-box二进制文件
 """
 
 import os
@@ -10,7 +10,7 @@ import subprocess
 import sys
 from helpers import (
     get_system_architecture,
-    get_latest_sing_box_release,
+    get_latest_stable_sing_box_release,  # 函数名变更
     download_file,
     check_sing_box_installed,
     load_config
@@ -18,41 +18,34 @@ from helpers import (
 
 def setup_sing_box():
     """设置并返回sing-box工具路径"""
-    # 首先检查是否已安装sing-box
     installed_path = check_sing_box_installed()
     if installed_path:
         return installed_path
     
-    # 获取系统信息
     system_arch = get_system_architecture()
     print(f"系统架构: {system_arch}")
     
-    # 获取最新版本信息
-    latest_version, download_url = get_latest_sing_box_release(system_arch)
+    # 使用新的函数名
+    latest_version, download_url = get_latest_stable_sing_box_release(system_arch)
     if not latest_version or not download_url:
-        print("获取sing-box最新版本信息失败")
-        # 尝试使用一个已知的稳定版本和URL作为降级方案
-        latest_version = "1.12.4"  # 使用用户提供的已知稳定版本
+        print("获取sing-box最新稳定版本信息失败")
+        latest_version = "1.12.4"
         download_url = f"https://github.com/SagerNet/sing-box/releases/download/v{latest_version}/sing-box-{latest_version}-{system_arch}.tar.gz"
         print(f"使用降级版本: {latest_version}")
     
-    print(f"目标sing-box版本: {latest_version}")
+    print(f"目标sing-box稳定版本: {latest_version}")
     print(f"下载地址: {download_url}")
     
-    # 下载sing-box
     sing_box_filename = f"sing-box-{latest_version}-{system_arch}"
     sing_box_path = download_file(download_url, f"/tmp/{sing_box_filename}.tar.gz", extract=True)
     
-    # 如果主下载源失败，尝试备用下载源
     if not sing_box_path:
         print("主下载源失败，尝试备用镜像...")
         alt_download_url = f"https://github.loohps.com/https://github.com/SagerNet/sing-box/releases/download/v{latest_version}/sing-box-{latest_version}-{system_arch}.tar.gz"
         sing_box_path = download_file(alt_download_url, f"/tmp/{sing_box_filename}_alt.tar.gz", extract=True)
     
     if sing_box_path:
-        # 设置执行权限
         os.chmod(sing_box_path, 0o755)
-        # 验证版本
         try:
             result = subprocess.run([sing_box_path, "version"], capture_output=True, text=True, timeout=30)
             if result.returncode == 0:
@@ -91,12 +84,10 @@ def process_list_format(url, output_filename, sing_box_path):
     """处理LIST格式规则文件"""
     print(f"Processing LIST format: {url}")
     
-    # 下载列表文件
     temp_list_path = f"/tmp/{output_filename}.list"
     if not download_file(url, temp_list_path):
         return False
     
-    # 转换LIST为Sing-box JSON格式
     json_rules = {"version": 1, "rules": []}
     
     with open(temp_list_path, 'r') as f:
@@ -105,7 +96,6 @@ def process_list_format(url, output_filename, sing_box_path):
             if not line or line.startswith('#'):
                 continue
                 
-            # 根据内容类型创建规则
             rule = {"outbound": "block"}
             if line.startswith('DOMAIN,'):
                 domain = line.split(',')[1]
@@ -117,7 +107,6 @@ def process_list_format(url, output_filename, sing_box_path):
                 ip_cidr = line.split(',')[1]
                 rule["ip_cidr"] = [ip_cidr]
             else:
-                # 尝试自动检测类型
                 if '.' in line and '/' not in line:
                     rule["domain_suffix"] = [line]
                 elif '/' in line:
@@ -125,16 +114,13 @@ def process_list_format(url, output_filename, sing_box_path):
             
             json_rules["rules"].append(rule)
     
-    # 保存临时JSON文件
     temp_json_path = f"/tmp/{output_filename}.json"
     with open(temp_json_path, 'w') as f:
         json.dump(json_rules, f, indent=2)
     
-    # 转换为SRS
     output_path = f"outputs/{output_filename}.srs"
     success = convert_to_srs(temp_json_path, output_path, sing_box_path)
     
-    # 清理临时文件
     if os.path.exists(temp_list_path):
         os.remove(temp_list_path)
     if os.path.exists(temp_json_path):
@@ -146,16 +132,13 @@ def process_json_format(url, output_filename, sing_box_path):
     """处理JSON格式规则文件"""
     print(f"Processing JSON format: {url}")
     
-    # 下载JSON文件
     temp_json_path = f"/tmp/{output_filename}.json"
     if not download_file(url, temp_json_path):
         return False
     
-    # 转换为SRS
     output_path = f"outputs/{output_filename}.srs"
     success = convert_to_srs(temp_json_path, output_path, sing_box_path)
     
-    # 清理临时文件
     if os.path.exists(temp_json_path):
         os.remove(temp_json_path)
     
@@ -163,19 +146,15 @@ def process_json_format(url, output_filename, sing_box_path):
 
 def main():
     """主函数"""
-    # 创建输出目录
     os.makedirs("outputs", exist_ok=True)
     
-    # 设置sing-box
     sing_box_path = setup_sing_box()
     if not sing_box_path:
         print("Failed to setup sing-box tool")
         return 1
     
-    # 加载配置
     config = load_config("configs/rule_sources.json")
     
-    # 处理所有规则集
     success_count = 0
     for ruleset in config["rulesets"]:
         url = ruleset["url"]
@@ -184,14 +163,12 @@ def main():
         
         print(f"\nProcessing {name} from {url}")
         
-        # 自动检测格式
         if format_type == "auto":
             if url.endswith('.list') or url.endswith('.txt'):
                 format_type = "list"
             elif url.endswith('.json'):
                 format_type = "json"
         
-        # 根据格式处理
         success = False
         if format_type == "list":
             success = process_list_format(url, name, sing_box_path)
