@@ -2,12 +2,12 @@
   "rulesets": [
     {
       "name": "geosite-av",
-      "url": "https://raw.githubusercontent.com/gr294949/sing-box-rule-converter/rule-set/geosite-av.json",
+      "url": "https://raw.githubusercontent.com/gr294949/sing-box-rule-converter/refs/heads/main/configs/geosite-av.json",
       "format": "json"
     },
     {
       "name": "geosite-jav",
-      "url": "https://raw.githubusercontent.com/gr294949/sing-box-rule-converter/rule-set/geosite-jav.json",
+      "url": "https://raw.githubusercontent.com/gr294949/sing-box-rule-converter/refs/heads/main/configs/geosite-jav.json",
       "format": "json"
     }
   ]
