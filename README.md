@@ -1,8 +1,8 @@
 # 🚀Sing-box 规则集自动转换工具
 
-![GitHub Actions Workflow](https://img.shields.io/github/actions/workflow/status/your-username/sing-box-rule-converter/convert-rulesets.yml?label=规则转换)
-![GitHub release (latest by date)](https://img.shields.io/github/v/release/your-username/sing-box-rule-converter)
-![GitHub](https://img.shields.io/github/license/your-username/sing-box-rule-converter)
+![GitHub Actions Workflow](https://img.shields.io/github/actions/workflow/status/gr294949/sing-box-rule-converter/convert-rulesets.yml?label=规则转换)
+![GitHub release (latest by date)](https://img.shields.io/github/v/release/gr294949/sing-box-rule-converter)
+![GitHub](https://img.shields.io/github/license/gr294949/sing-box-rule-converter)
 
 自动化将 JSON 和 LIST 格式的 sing-box 分流规则转换为高性能的 SRS 二进制格式，通过 GitHub Actions 实现完全自动化的规则集管理。
 
