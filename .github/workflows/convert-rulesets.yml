@@ -1,20 +1,24 @@
 name: Convert Sing-box Rulesets
 
 on:
-  workflow_dispatch:    # 允许手动触发
+  workflow_dispatch:
   schedule:
-    - cron: '0 0 * * 1' # 每周一次(可选)
+    - cron: '0 0 * * 1' # 每周一 UTC 时间 00:00 自动运行
   push:
     paths:
-      - 'configs/rule_sources.json' # 配置变更时触发
+      - 'configs/rule_sources.json'
+      - 'scripts/*.py'
 
 jobs:
   convert-rules:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     
     steps:
     - name: Checkout repository
       uses: actions/checkout@v4
+      with:
+        fetch-depth: 1
 
     - name: Setup Python
       uses: actions/setup-python@v5
@@ -24,17 +28,30 @@ jobs:
     - name: Install dependencies
       run: pip install requests pyyaml
 
+    - name: Print system information
+      run: |
+        echo "Runner OS: $RUNNER_OS"
+        echo "Runner Arch: $RUNNER_ARCH"
+        python -c "import platform; print(f'Python arch: {platform.machine()}')"
+
     - name: Download and convert rulesets
       run: python scripts/convert.py
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: List generated files (Debug)
+      run: ls -la outputs/
 
     - name: Upload generated SRS files
+      if: success() || failure()  # 即使部分失败也上传已生成的文件
       uses: actions/upload-artifact@v4
       with:
-        name: converted-srs-files
-        path: outputs/
-        
+        name: sing-box-rule-sets
+        path: outputs/*.srs
+        retention-days: 90  # 设置构件保留天数:cite[3]
+
     - name: Create Release on Tag
-      if: startsWith(github.ref, 'refs/tags/')
+      if: success() && startsWith(github.ref, 'refs/tags/')
       uses: softprops/action-gh-release@v1
       with:
         files: outputs/*.srs
