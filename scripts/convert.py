@@ -112,7 +112,7 @@ def main():
     config = load_config("configs/rule_sources.json")
     
     # 下载sing-box工具
-    sing_box_url = "https://github.com/SagerNet/sing-box/releases/download/v1.8.0/sing-box-1.8.0-linux-amd64.tar.gz"
+    sing_box_url = "https://github.com/SagerNet/sing-box/releases/download/v1.12.4/sing-box-1.12.4-linux-amd64.tar.gz"
     sing_box_path = download_file(sing_box_url, "/tmp/sing-box.tar.gz", extract=True)
     
     if not sing_box_path:
