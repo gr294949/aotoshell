@@ -1,97 +1,159 @@
-# 🚀 Sing-box规则集转换自动化仓库
-下面我将为你创建一个完整的GitHub仓库方案，使用GitHub Actions自动将sing-box的JSON和LIST格式分流规则转换为高性能的SRS二进制格式。
+# 🚀Sing-box 规则集自动转换工具
 
-## 功能特点
+![GitHub Actions Workflow](https://img.shields.io/github/actions/workflow/status/your-username/sing-box-rule-converter/convert-rulesets.yml?label=规则转换)
+![GitHub release (latest by date)](https://img.shields.io/github/v/release/your-username/sing-box-rule-converter)
+![GitHub](https://img.shields.io/github/license/your-username/sing-box-rule-converter)
 
-- 🔄 自动转换JSON和LIST格式规则为SRS二进制格式
-- ⏰ 支持定时自动更新（每周一次）
-- 🏷️ 支持版本标签自动发布
-- 🔧 易于配置自定义规则源
-- 📦 完全自动化，无需手动干预
+自动化将 JSON 和 LIST 格式的 sing-box 分流规则转换为高性能的 SRS 二进制格式，通过 GitHub Actions 实现完全自动化的规则集管理。
 
-## 使用方法
+## ✨ 特性
 
-1. **Fork本仓库**
+- 🔄 **自动转换**: 将 JSON 和 LIST 格式规则自动编译为 SRS 二进制格式
+- ⏰ **定时更新**: 支持每周自动更新规则集，确保规则最新
+- 🏷️ **版本发布**: 自动创建 GitHub Release 并打包生成的文件
+- 🛡️ **稳定可靠**: 多重回退机制和错误处理，确保流程稳定性
+- 🔧 **易于配置**: 简单的配置文件管理所有规则源
+- 📦 **多架构支持**: 自动检测系统架构并下载合适的 sing-box 版本
+
+## 🚀 快速开始
+
+### 前置要求
+
+- GitHub 账户
+- Fork 本仓库
+
+### 安装步骤
+
+1. **Fork 本仓库**
+   - 点击右上角的 "Fork" 按钮，将仓库复制到你的账户
+
 2. **配置规则源**
+   - 编辑 `configs/rule_sources.json` 文件，添加你需要的规则源
+   - 示例配置已包含常用规则源（GeoIP CN、Geosite CN 等）
 
-   编辑 `configs/rule_sources.json` 文件，添加你的规则源：
-   ```json
-   {
-     "rulesets": [
-       {
-         "name": "my-rules",
-         "url": "https://example.com/rules.json",
-         "format": "json"
-       }
-     ]
-   }
-3. **手动运行工作流**
+3. **手动触发工作流**
+   - 进入仓库的 **Actions** 标签页
+   - 选择 **Convert Sing-box Rulesets** 工作流
+   - 点击 **Run workflow** 触发手动转换
 
-   进入仓库的 Actions 标签页
-   选择 Convert Sing-box Rulesets 工作流
-   点击 Run workflow 触发手动转换
+4. **获取生成的 SRS 文件**
+   - 在工作流运行完成后，在 **Artifacts** 部分下载生成的 SRS 文件
+   - 或创建 Git 标签自动打包发布到 Release
 
-4. **获取生成的SRS文件**
+## ⚙️ 配置说明
 
-   在工作流运行完成后，在 Artifacts 部分下载生成的SRS文件
-   或创建GitHub Release标签自动打包发布  
-## 配置选项
+### 规则源配置
 
-   规则源格式
-   {
-    "name": "规则集名称（输出文件名）",
-    "url": "规则源URL",
-    "format": "格式类型（json/list/auto）"
-   }
-## 工作流触发条件
-   
-   手动触发: 通过GitHub UI手动运行
-   
-   定时任务: 每周一UTC时间00:00自动运行
-   
-   配置变更: 当规则源配置文件更改时自动触发
-## 文件说明
-  .github/workflows/convert-rulesets.yml - GitHub Actions工作流定义
+编辑 `configs/rule_sources.json` 文件来管理你的规则源：
 
-  scripts/convert.py - 主要转换脚本
+```json
+{
+  "rulesets": [
+    {
+      "name": "规则集名称（输出文件名）",
+      "url": "规则源URL",
+      "format": "格式类型（json/list/auto）"
+    },
+    {
+      "name": "geoip-cn",
+      "url": "https://raw.githubusercontent.com/SagerNet/sing-geoip/rule-set/geoip-cn.json",
+      "format": "json"
+    },
+    {
+      "name": "geosite-cn",
+      "url": "https://raw.githubusercontent.com/SagerNet/sing-geosite/rule-set/geosite-cn.json",
+      "format": "json"
+    }
+  ]
+}
+```
 
-  scripts/helpers.py - 辅助函数
+### 支持的类型
 
-  configs/rule_sources.json - 规则源配置
+- **JSON 格式**: sing-box 原生规则集格式
+- **LIST 格式**: 纯文本列表格式（支持 DOMAIN、DOMAIN-SUFFIX、IP-CIDR 等前缀）
 
-  outputs/ - 生成的SRS文件目录
+## 📁 项目结构
 
-## 注意事项
-   
-   确保规则源URL可公开访问
+```
+sing-box-rule-converter/
+├── .github/
+│   └── workflows/
+│       └── convert-rulesets.yml     # GitHub Actions 工作流定义
+├── scripts/
+│   ├── convert.py                   # 主要转换脚本
+│   └── helpers.py                   # 辅助函数（下载、架构检测等）
+├── configs/
+│   └── rule_sources.json            # 规则源配置文件
+├── outputs/                         # 生成的 SRS 文件目录
+├── .gitignore
+├── LICENSE
+└── README.md
+```
 
-   List格式规则支持常见格式（DOMAIN, DOMAIN-SUFFIX, IP-CIDR）
+## 🔧 工作流详情
 
-   大型规则集转换可能需要较长时间（最多5分钟）
+### 触发条件
 
-   生成的SRS文件与sing-box 1.8.0+版本兼容
+- **手动触发**: 通过 GitHub UI 手动运行
+- **定时任务**: 每周一 UTC 时间 00:00 自动运行
+- **配置变更**: 当规则源配置文件更改时自动触发
+- **标签发布**: 创建 Git 标签时自动发布 Release
 
-## 常见问题
-   **转换失败怎么办？**
-   
-   检查规则源URL是否可访问
+### 执行流程
 
-   确认规则格式配置正确
+1. 检查最新版本的 sing-box
+2. 根据系统架构下载合适的 sing-box 二进制文件
+3. 下载配置中指定的所有规则源
+4. 将规则编译为 SRS 格式
+5. 上传生成的文件到 Artifacts
+6. （可选）创建 GitHub Release
 
-   查看Actions日志获取详细错误信息
+## 🐛 故障排除
 
-   **如何添加新规则源？**
-   
-   编辑 configs/rule_sources.json
+### 常见问题
 
-   添加新的规则源配置
+**Q: 工作流运行失败，显示 "Failed to download sing-box tool"**
+A: 这通常是网络问题导致的下载失败，工作流会自动重试。如果问题持续，请检查 GitHub 的网络连接状态。
 
-   提交更改将自动触发转换
+**Q: 规则转换失败**
+A: 检查规则源 URL 是否可访问，以及规则格式是否正确配置。
 
-## 贡献
-   
-   欢迎提交Issue和Pull Request来改进本项目！
+**Q: 生成的 SRS 文件无法加载**
+A: 确保使用兼容的 sing-box 版本（v1.8.0+）。
 
+### 查看日志
 
+工作流运行详情可以在仓库的 **Actions** 标签页中查看，每个步骤都有详细的日志输出。
+
+## 🤝 贡献
+
+欢迎提交 Issue 和 Pull Request 来改进本项目！
+
+1. Fork 本仓库
+2. 创建特性分支 (`git checkout -b feature/AmazingFeature`)
+3. 提交更改 (`git commit -m 'Add some AmazingFeature'`)
+4. 推送到分支 (`git push origin feature/AmazingFeature`)
+5. 开启 Pull Request
+
+## 📄 许可证
+
+本项目采用 MIT 许可证 - 查看 [LICENSE](LICENSE) 文件了解详情。
+
+## 🙏 致谢
+
+- [SagerNet/sing-box](https://github.com/SagerNet/sing-box) - 优秀的代理平台
+- GitHub Actions - 强大的自动化平台
+
+## 📞 支持
+
+如果你遇到任何问题或有建议，请：
+
+1. 查看 [现有 Issue](https://github.com/your-username/sing-box-rule-converter/issues)
+2. 如果找不到解决方案，请创建新 Issue 并提供详细描述
+
+---
+
+⭐ 如果你觉得这个项目有用，请给它一个星标！
 
 
