@@ -1,10 +1,11 @@
 #!/bin/bash
 
 # ==============================================
-# sing-box 管理脚本
-# 版本: 1.2
-# 作者: autoShell
-# GitHub: https://github.com/gr294949/aotoshell
+# sing-box 增强版管理脚本
+# 版本: 2.0
+# 作者: gr294949
+# GitHub: https://github.com/gr294949/sing-box-rule-converter
+# 功能: 安装/卸载/更新 sing-box，配置透明网关
 # ==============================================
 
 # 定义颜色代码
@@ -14,6 +15,13 @@ YELLOW='\033[1;33m'
 RED='\033[0;31m'
 BLUE='\033[0;34m'
 NC='\033[0m' # 无颜色
+
+# 脚本配置
+SCRIPT_VERSION="2.0"
+SCRIPT_URL="https://raw.githubusercontent.com/gr294949/sing-box-rule-converter/main/singbox-manager.sh"
+CONFIG_DIR="/etc/sing-box"
+SERVICE_FILE="/etc/systemd/system/sing-box.service"
+BINARY_PATH="/usr/local/bin/sing-box"
 
 # 函数：打印带颜色的消息
 print_info() {
@@ -36,16 +44,63 @@ print_header() {
     echo -e "${BLUE}$1${NC}"
 }
 
+# 函数：检查网络连接
+check_network() {
+    if ! curl -Is https://github.com | head -n 1 > /dev/null; then
+        print_error "网络连接失败，请检查网络设置"
+        return 1
+    fi
+    return 0
+}
+
+# 函数：检查并更新脚本
+update_script() {
+    print_header "检查脚本更新..."
+    
+    if ! check_network; then
+        print_warning "无法检查更新，网络连接失败"
+        return 1
+    fi
+    
+    local remote_version
+    remote_version=$(curl -fsL "$SCRIPT_URL" | grep -m 1 "SCRIPT_VERSION=" | cut -d'"' -f2)
+    
+    if [ -z "$remote_version" ]; then
+        print_warning "无法获取远程版本信息"
+        return 1
+    fi
+    
+    if [ "$SCRIPT_VERSION" != "$remote_version" ]; then
+        print_info "发现新版本: $remote_version (当前: $SCRIPT_VERSION)"
+        read -p "是否更新脚本? (y/N): " -n 1 -r
+        echo
+        if [[ $REPLY =~ ^[Yy]$ ]]; then
+            print_info "正在更新脚本..."
+            curl -fsL "$SCRIPT_URL" -o "$0"
+            chmod +x "$0"
+            print_success "脚本已更新到版本 $remote_version"
+            print_info "请重新运行脚本"
+            exit 0
+        fi
+    else
+        print_info "脚本已是最新版本 ($SCRIPT_VERSION)"
+    fi
+}
+
 # 函数：检测已安装的 sing-box 版本
 detect_singbox() {
-    if command -v sing-box &> /dev/null; then
-        SINGBOX_VERSION=$(sing-box version 2>/dev/null | grep -oP 'sing-box \K[^\s]+' || echo "未知版本")
+    if command -v sing-box &> /dev/null || [ -f "$BINARY_PATH" ]; then
+        if [ -f "$BINARY_PATH" ]; then
+            SINGBOX_VERSION=$("$BINARY_PATH" version 2>/dev/null | grep -oP 'sing-box \K[^\s]+' || echo "未知版本")
+        else
+            SINGBOX_VERSION=$(sing-box version 2>/dev/null | grep -oP 'sing-box \K[^\s]+' || echo "未知版本")
+        fi
         SINGBOX_INSTALLED=true
         
         # 检测安装方式
         if dpkg -l | grep -q "sing-box"; then
             INSTALL_METHOD="apt"
-        elif [ -f "/usr/local/bin/sing-box" ]; then
+        elif [ -f "$BINARY_PATH" ] || [ -f "/usr/local/bin/sing-box" ]; then
             INSTALL_METHOD="manual"
         else
             INSTALL_METHOD="unknown"
@@ -61,7 +116,7 @@ detect_singbox() {
 # 函数：显示系统信息
 show_system_info() {
     print_header "===== 系统信息 ====="
-    echo "操作系统: $(lsb_release -d | cut -f2)"
+    echo "操作系统: $(lsb_release -d | cut -f2 2>/dev/null || uname -s)"
     echo "内核版本: $(uname -r)"
     echo "系统架构: $(uname -m)"
     echo "主机名: $(hostname)"
@@ -78,16 +133,21 @@ show_singbox_status() {
         echo -e "状态: ${GREEN}已安装${NC}"
         echo "版本: $SINGBOX_VERSION"
         echo "安装方式: $INSTALL_METHOD"
-        echo "路径: $(which sing-box)"
+        
+        if [ -f "$BINARY_PATH" ]; then
+            echo "路径: $BINARY_PATH"
+        else
+            echo "路径: $(which sing-box)"
+        fi
         
         # 检查服务状态
-        if systemctl is-active sing-box --quiet; then
+        if systemctl is-active sing-box --quiet 2>/dev/null; then
             echo -e "服务状态: ${GREEN}运行中${NC}"
         else
             echo -e "服务状态: ${RED}未运行${NC}"
         fi
         
-        if systemctl is-enabled sing-box --quiet; then
+        if systemctl is-enabled sing-box --quiet 2>/dev/null; then
             echo -e "开机启动: ${GREEN}已启用${NC}"
         else
             echo -e "开机启动: ${RED}未启用${NC}"
@@ -96,6 +156,89 @@ show_singbox_status() {
         echo -e "状态: ${RED}未安装${NC}"
     fi
     echo ""
+}
+
+# 函数：自动设置权限
+set_permissions() {
+    print_info "设置文件和目录权限..."
+    
+    # 创建 sing-box 用户
+    if ! id sing-box &>/dev/null; then
+        useradd --system --no-create-home --shell /usr/sbin/nologin sing-box
+    fi
+    
+    # 创建必要的目录
+    mkdir -p "$CONFIG_DIR" /var/lib/sing-box
+    
+    # 设置目录权限
+    chown -R sing-box:sing-box "$CONFIG_DIR" /var/lib/sing-box
+    chmod 755 "$CONFIG_DIR" /var/lib/sing-box
+    
+    # 设置二进制文件权限
+    if [ -f "$BINARY_PATH" ]; then
+        chown sing-box:sing-box "$BINARY_PATH"
+        chmod 755 "$BINARY_PATH"
+    fi
+    
+    print_success "权限设置完成"
+}
+
+# 函数：下载最新版 sing-box
+download_singbox() {
+    print_header "下载 sing-box..."
+    
+    local api_url="https://api.github.com/repos/SagerNet/sing-box/releases/latest"
+    local download_url
+    
+    # 获取最新版本下载链接
+    if [ "$(uname -m)" = "aarch64" ] || [ "$(uname -m)" = "arm64" ]; then
+        download_url=$(curl -s $api_url | grep -o "https://.*linux-arm64.*tar.gz" | head -n 1)
+    elif [ "$(uname -m)" = "x86_64" ]; then
+        download_url=$(curl -s $api_url | grep -o "https://.*linux-amd64.*tar.gz" | head -n 1)
+    else
+        print_error "不支持的架构: $(uname -m)"
+        return 1
+    fi
+    
+    if [ -z "$download_url" ]; then
+        print_error "无法获取下载链接"
+        return 1
+    fi
+    
+    print_info "下载地址: $download_url"
+    
+    # 创建临时目录
+    local temp_dir
+    temp_dir=$(mktemp -d)
+    
+    # 下载并解压
+    curl -fL "$download_url" -o "$temp_dir/sing-box.tar.gz"
+    if [ $? -ne 0 ]; then
+        print_error "下载失败"
+        rm -rf "$temp_dir"
+        return 1
+    fi
+    
+    tar -xzf "$temp_dir/sing-box.tar.gz" -C "$temp_dir"
+    
+    # 查找可执行文件
+    local binary_path
+    binary_path=$(find "$temp_dir" -name "sing-box" -type f | head -n 1)
+    
+    if [ -z "$binary_path" ]; then
+        print_error "未找到可执行文件"
+        rm -rf "$temp_dir"
+        return 1
+    fi
+    
+    # 移动文件
+    mv -f "$binary_path" "$BINARY_PATH"
+    
+    # 清理临时文件
+    rm -rf "$temp_dir"
+    
+    print_success "sing-box 下载完成"
+    return 0
 }
 
 # 函数：安装 sing-box
@@ -112,42 +255,63 @@ install_singbox() {
         fi
     fi
     
-    # 添加官方 GPG 密钥和仓库
-    print_info "添加 GPG 密钥和软件源..."
-    sudo mkdir -p /etc/apt/keyrings
-    sudo curl -fsSL https://sing-box.app/gpg.key -o /etc/apt/keyrings/sagernet.asc
-    sudo chmod a+r /etc/apt/keyrings/sagernet.asc
+    # 选择安装方式
+    print_info "请选择安装方式:"
+    echo "1) 从 GitHub 下载最新版 (推荐)"
+    echo "2) 从 APT 仓库安装"
+    read -p "请输入选择 (1/2): " install_choice
     
-    echo "Types: deb
+    case $install_choice in
+        1)
+            # 从 GitHub 下载
+            if ! download_singbox; then
+                print_error "下载安装失败"
+                return 1
+            fi
+            ;;
+        2)
+            # 从 APT 安装
+            print_info "添加 GPG 密钥和软件源..."
+            mkdir -p /etc/apt/keyrings
+            curl -fsSL https://sing-box.app/gpg.key -o /etc/apt/keyrings/sagernet.asc
+            chmod a+r /etc/apt/keyrings/sagernet.asc
+            
+            echo "Types: deb
 URIs: https://deb.sagernet.org/
 Suites: *
 Components: *
 Enabled: yes
 Signed-By: /etc/apt/keyrings/sagernet.asc
-" | sudo tee /etc/apt/sources.list.d/sagernet.sources > /dev/null
+" | tee /etc/apt/sources.list.d/sagernet.sources > /dev/null
 
-    # 更新包列表
-    print_info "更新软件包列表..."
-    sudo apt-get update -qq > /dev/null 2>&1
+            # 更新包列表
+            print_info "更新软件包列表..."
+            apt-get update -qq > /dev/null 2>&1
 
-    # 选择安装版本
-    print_info "请选择安装版本:"
-    echo "1) 稳定版"
-    echo "2) 测试版"
-    read -p "请输入选择 (1/2): " version_choice
-    
-    case $version_choice in
-        1)
-            print_info "安装稳定版..."
-            sudo apt-get install sing-box -yq
-            ;;
-        2)
-            print_info "安装测试版..."
-            sudo apt-get install sing-box-beta -yq
+            # 选择安装版本
+            print_info "请选择安装版本:"
+            echo "1) 稳定版"
+            echo "2) 测试版"
+            read -p "请输入选择 (1/2): " version_choice
+            
+            case $version_choice in
+                1)
+                    print_info "安装稳定版..."
+                    apt-get install sing-box -yq
+                    ;;
+                2)
+                    print_info "安装测试版..."
+                    apt-get install sing-box-beta -yq
+                    ;;
+                *)
+                    print_error "无效选择，默认安装稳定版"
+                    apt-get install sing-box -yq
+                    ;;
+            esac
             ;;
         *)
-            print_error "无效选择，默认安装稳定版"
-            sudo apt-get install sing-box -yq
+            print_error "无效选择"
+            return 1
             ;;
     esac
 
@@ -155,20 +319,223 @@ Signed-By: /etc/apt/keyrings/sagernet.asc
     if detect_singbox; then
         print_success "sing-box 安装成功，版本: $SINGBOX_VERSION"
         
-        # 创建系统用户和设置权限
-        print_info "设置系统用户和权限..."
-        if ! id sing-box &>/dev/null; then
-            sudo useradd --system --no-create-home --shell /usr/sbin/nologin sing-box
-        fi
+        # 设置权限
+        set_permissions
         
-        sudo mkdir -p /var/lib/sing-box /etc/sing-box
-        sudo chown -R sing-box:sing-box /var/lib/sing-box /etc/sing-box
+        # 上传配置文件
+        upload_config
         
         return 0
     else
         print_error "sing-box 安装失败"
         return 1
     fi
+}
+
+# 函数：上传配置文件
+upload_config() {
+    print_header "配置 sing-box..."
+    
+    # 创建配置目录
+    mkdir -p "$CONFIG_DIR"
+    
+    print_info "请选择配置方式:"
+    echo "1) 使用默认配置文件 (透明网关)"
+    echo "2) 手动上传配置文件"
+    read -p "请输入选择 (1/2): " config_choice
+    
+    case $config_choice in
+        1)
+            # 使用默认配置
+            create_default_config
+            ;;
+        2)
+            # 手动上传配置
+            read -p "请输入配置文件路径: " config_path
+            if [ -f "$config_path" ]; then
+                cp "$config_path" "$CONFIG_DIR/config.json"
+                print_success "配置文件已上传"
+            else
+                print_error "文件不存在: $config_path"
+                return 1
+            fi
+            ;;
+        *)
+            print_error "无效选择，使用默认配置"
+            create_default_config
+            ;;
+    esac
+    
+    # 设置配置文件权限
+    chown sing-box:sing-box "$CONFIG_DIR/config.json"
+    chmod 644 "$CONFIG_DIR/config.json"
+    
+    print_success "配置完成"
+    return 0
+}
+
+# 函数：创建默认配置文件
+create_default_config() {
+    print_info "创建默认配置文件..."
+    
+    cat > "$CONFIG_DIR/config.json" << EOF
+{
+  "log": {
+    "level": "info",
+    "timestamp": true
+  },
+  "dns": {
+    "servers": [
+      {
+        "tag": "google",
+        "address": "tls://8.8.8.8",
+        "detour": "direct"
+      },
+      {
+        "tag": "local",
+        "address": "local",
+        "detour": "direct"
+      }
+    ],
+    "rules": [
+      {
+        "outbound": "any",
+        "server": "local"
+      }
+    ],
+    "strategy": "ipv4_first"
+  },
+  "inbounds": [
+    {
+      "type": "tun",
+      "tag": "tun-in",
+      "interface_name": "tun0",
+      "mtu": 9000,
+      "stack": "mixed",
+      "endpoint_independent_nat": true,
+      "sniff": true,
+      "sniff_override_destination": true,
+      "domain_strategy": "ipv4_only",
+      "inet4_address": "172.19.0.1/30",
+      "auto_route": true,
+      "strict_route": true
+    }
+  ],
+  "outbounds": [
+    {
+      "type": "direct",
+      "tag": "direct"
+    },
+    {
+      "type": "block",
+      "tag": "block"
+    },
+    {
+      "type": "dns",
+      "tag": "dns-out"
+    }
+  ],
+  "route": {
+    "rules": [
+      {
+        "protocol": "dns",
+        "outbound": "dns-out"
+      },
+      {
+        "ip_cidr": [
+          "224.0.0.0/3",
+          "ff00::/8"
+        ],
+        "outbound": "block"
+      },
+      {
+        "geoip": [
+          "private",
+          "cn"
+        ],
+        "outbound": "direct"
+      }
+    ],
+    "auto_detect_interface": true
+  }
+}
+EOF
+
+    print_success "默认配置文件已创建"
+}
+
+# 函数：配置透明网关
+setup_transparent_gateway() {
+    print_header "设置透明网关..."
+    
+    # 检查是否已安装 sing-box
+    if ! detect_singbox; then
+        print_error "请先安装 sing-box"
+        return 1
+    fi
+    
+    # 启用 IP 转发
+    print_info "启用 IP 转发..."
+    echo 'net.ipv4.ip_forward=1' >> /etc/sysctl.conf
+    echo 'net.ipv6.conf.all.forwarding=1' >> /etc/sysctl.conf
+    sysctl -p
+    
+    # 创建 nftables 规则
+    print_info "创建 nftables 规则..."
+    cat > /etc/nftables.singbox.rules << EOF
+#!/usr/sbin/nft -f
+
+flush ruleset
+
+table inet sing-box {
+    chain prerouting {
+        type filter hook prerouting priority mangle; policy accept;
+        meta mark 0x00000001 mark set 0x00000002
+    }
+    
+    chain postrouting {
+        type nat hook postrouting priority srcnat; policy accept;
+        meta mark 0x00000002 masquerade
+    }
+}
+EOF
+    
+    # 应用 nftables 规则
+    nft -f /etc/nftables.singbox.rules
+    
+    # 创建 systemd 服务
+    print_info "创建 systemd 服务..."
+    cat > "$SERVICE_FILE" << EOF
+[Unit]
+Description=sing-box service
+Documentation=https://sing-box.sagernet.org
+After=network.target nss-lookup.target
+
+[Service]
+User=sing-box
+Group=sing-box
+CapabilityBoundingSet=CAP_NET_ADMIN CAP_NET_BIND_SERVICE CAP_NET_RAW CAP_SYS_PTRACE CAP_DAC_READ_SEARCH
+AmbientCapabilities=CAP_NET_ADMIN CAP_NET_BIND_SERVICE CAP_NET_RAW CAP_SYS_PTRACE CAP_DAC_READ_SEARCH
+ExecStart=$BINARY_PATH run -c $CONFIG_DIR/config.json
+ExecReload=/bin/kill -HUP \$MAINPID
+Restart=on-failure
+RestartSec=10
+LimitNPROC=512
+LimitNOFILE=infinity
+
+[Install]
+WantedBy=multi-user.target
+EOF
+    
+    # 重新加载 systemd
+    systemctl daemon-reload
+    
+    # 启用并启动服务
+    systemctl enable sing-box
+    systemctl start sing-box
+    
+    print_success "透明网关设置完成"
+    print_info "请将客户端网关设置为当前设备 IP 地址"
 }
 
 # 函数：卸载 sing-box
@@ -190,63 +557,55 @@ uninstall_singbox() {
     
     # 停止并禁用服务
     print_info "停止服务..."
-    sudo systemctl stop sing-box 2>/dev/null
-    sudo systemctl disable sing-box 2>/dev/null
+    systemctl stop sing-box 2>/dev/null
+    systemctl disable sing-box 2>/dev/null
     
     # 根据安装方式卸载
     case $INSTALL_METHOD in
         "apt")
             print_info "通过 apt 卸载..."
-            sudo apt-get remove --purge sing-box sing-box-beta -y
+            apt-get remove --purge sing-box sing-box-beta -y
             ;;
         "manual")
             print_info "手动卸载..."
-            sudo rm -f /usr/local/bin/sing-box
-            sudo rm -rf /etc/sing-box /var/lib/sing-box
+            rm -f "$BINARY_PATH"
+            rm -rf "$CONFIG_DIR" /var/lib/sing-box
             ;;
         *)
             print_warning "未知安装方式，尝试通用卸载..."
-            sudo apt-get remove --purge sing-box sing-box-beta -y 2>/dev/null
-            sudo rm -f /usr/local/bin/sing-box
-            sudo rm -rf /etc/sing-box /var/lib/sing-box
+            apt-get remove --purge sing-box sing-box-beta -y 2>/dev/null
+            rm -f "$BINARY_PATH"
+            rm -rf "$CONFIG_DIR" /var/lib/sing-box
             ;;
     esac
     
-    # 删除 nftables-singbox 服务
-    if [ -f "/etc/systemd/system/nftables-singbox.service" ]; then
-        print_info "删除 nftables-singbox 服务..."
-        sudo systemctl stop nftables-singbox.service 2>/dev/null
-        sudo systemctl disable nftables-singbox.service 2>/dev/null
-        sudo rm -f /etc/systemd/system/nftables-singbox.service
-        sudo systemctl daemon-reload
-        sudo systemctl reset-failed
+    # 删除服务文件
+    if [ -f "$SERVICE_FILE" ]; then
+        rm -f "$SERVICE_FILE"
     fi
     
-    # 删除相关脚本
-    print_info "清理相关文件..."
-    for script_path in "/usr/local/bin/nftables-singbox.sh" "/etc/singbox/nftables.sh" "/opt/singbox/nftables.sh"; do
-        if [ -f "$script_path" ]; then
-            sudo rm -f "$script_path"
-        fi
-    done
+    # 删除 nftables 规则
+    if [ -f "/etc/nftables.singbox.rules" ]; then
+        rm -f /etc/nftables.singbox.rules
+    fi
     
     # 删除软件源和密钥
     if [ -f "/etc/apt/sources.list.d/sagernet.sources" ]; then
-        sudo rm -f /etc/apt/sources.list.d/sagernet.sources
+        rm -f /etc/apt/sources.list.d/sagernet.sources
     fi
     
     if [ -f "/etc/apt/keyrings/sagernet.asc" ]; then
-        sudo rm -f /etc/apt/keyrings/sagernet.asc
+        rm -f /etc/apt/keyrings/sagernet.asc
     fi
     
     # 删除用户
     if id "sing-box" &>/dev/null; then
-        sudo userdel -r sing-box 2>/dev/null || sudo userdel sing-box 2>/dev/null
+        userdel -r sing-box 2>/dev/null || userdel sing-box 2>/dev/null
     fi
     
     # 清理残留配置
-    sudo apt-get autoremove -y 2>/dev/null
-    sudo apt-get autoclean -y 2>/dev/null
+    apt-get autoremove -y 2>/dev/null
+    apt-get autoclean -y 2>/dev/null
     
     print_success "sing-box 已完全卸载"
     return 0
@@ -268,31 +627,35 @@ manage_service() {
     echo "4) 查看服务状态"
     echo "5) 启用开机启动"
     echo "6) 禁用开机启动"
-    read -p "请输入选择 (1-6): " service_choice
+    echo "7) 查看服务日志"
+    read -p "请输入选择 (1-7): " service_choice
     
     case $service_choice in
         1)
-            sudo systemctl start sing-box
+            systemctl start sing-box
             print_success "服务已启动"
             ;;
         2)
-            sudo systemctl stop sing-box
+            systemctl stop sing-box
             print_success "服务已停止"
             ;;
         3)
-            sudo systemctl restart sing-box
+            systemctl restart sing-box
             print_success "服务已重启"
             ;;
         4)
             systemctl status sing-box
             ;;
         5)
-            sudo systemctl enable sing-box
+            systemctl enable sing-box
             print_success "已启用开机启动"
             ;;
         6)
-            sudo systemctl disable sing-box
+            systemctl disable sing-box
             print_success "已禁用开机启动"
+            ;;
+        7)
+            journalctl -u sing-box -f
             ;;
         *)
             print_error "无效选择"
@@ -310,7 +673,9 @@ show_menu() {
     echo "2) 卸载 sing-box"
     echo "3) 服务管理"
     echo "4) 查看状态"
-    echo "5) 退出"
+    echo "5) 设置透明网关"
+    echo "6) 更新脚本"
+    echo "7) 退出"
     echo ""
 }
 
@@ -323,6 +688,9 @@ main() {
         exit 1
     fi
     
+    # 检查更新
+    update_script
+    
     # 显示系统信息
     show_system_info
     
@@ -333,7 +701,7 @@ main() {
     # 主循环
     while true; do
         show_menu
-        read -p "请选择操作 (1-5): " choice
+        read -p "请选择操作 (1-7): " choice
         
         case $choice in
             1)
@@ -350,6 +718,12 @@ main() {
                 show_singbox_status
                 ;;
             5)
+                setup_transparent_gateway
+                ;;
+            6)
+                update_script
+                ;;
+            7)
                 print_info "再见!"
                 exit 0
                 ;;
